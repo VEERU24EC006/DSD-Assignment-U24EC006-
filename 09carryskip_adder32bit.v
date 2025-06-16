@@ -53,7 +53,7 @@ module carryskip_adder32(a,b,cin,cout,sum);
  assign cout = carry[4];
 endmodule 
 
-//testbench code 
+//  testbench code 
 module carryskip_tb;
   reg[31:0]a,b;
   reg cin;
