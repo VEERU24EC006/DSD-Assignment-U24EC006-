@@ -1,0 +1,123 @@
+module fiforeg #(
+parameter DATA = 8,
+parameter DEPTH = 16
+) (
+    input clk,
+    input reset,
+    input wren,
+    input[DATA - 1:0] wr_data,
+    input ren,
+    output reg[DATA -1 :0] rd_data,
+    output full, //status flags
+    output empty
+    );
+    
+ reg [DATA - 1:0] mem [DEPTH -1:0];
+ 
+ reg [$clog2(DEPTH) - 1:0] wr_ptr; // write and read pointers
+ reg [$clog2(DEPTH)-1:0] rd_ptr;
+ 
+ reg [$clog2(DEPTH):0] itemcount;
+ 
+ always@(posedge clk) begin
+    if(reset)begin
+    wr_ptr<=0;
+    rd_ptr<=0;
+    itemcount <=0;
+    rd_data<=0;
+ end
+    else begin
+    if(wren && !full)begin // write 
+        mem[wr_ptr] <= wr_data;
+        wr_ptr <= wr_ptr + 1;
+        end
+    
+    if(ren && !empty)begin // read
+         rd_data<= mem[rd_ptr];
+        rd_ptr <= rd_ptr + 1;
+        end
+        
+    if(wren && !full && !ren)begin
+        itemcount <= itemcount + 1;
+        end 
+        else if(ren && !empty && !wren)begin
+        itemcount <= itemcount -1;
+        end
+        // if both read and write are on then itl be same as 1 object wil be going and leaving at same time
+        
+     end  
+ end 
+     
+     assign empty = (itemcount ==0);
+     assign full = (itemcount == DEPTH);
+     
+endmodule 
+
+//testbench code
+
+timescale 1ns / 1ps
+module fiforegtb;
+
+ localparam DATA = 8;
+ localparam DEPTH = 16;
+ localparam clk_period = 10;
+ 
+   reg clk;
+   reg reset;
+   reg wren;
+   reg ren;
+   reg[DATA - 1:0] wr_data;
+   wire[DATA - 1:0] rd_data;
+   wire full;
+   wire empty;
+   
+   fiforeg #(.DATA(DATA),.DEPTH(DEPTH)) uut (.clk(clk),.reset(reset),.wren(wren),.ren(ren),.wr_data(wr_data),.rd_data(rd_data),.full(full),.empty(empty));
+   initial begin
+   clk = 0;
+   end
+   always #(clk_period /2) clk = ~clk;
+   
+   initial begin
+   reset = 1;
+   wren = 0;
+   ren = 0;
+   #20;
+   reset = 0;
+   #10;
+   repeat(DEPTH)begin
+   @(posedge clk)// write data and full fifo
+        wren = 1;
+        wr_data = wr_data + 1;
+        end
+   @(posedge clk) 
+        wren = 0;
+        #30;
+        
+   // read case
+        repeat(DEPTH)begin
+        @(posedge clk)
+            ren = 1;
+            end
+   @(posedge clk) // reading from empty 
+        ren = 1;
+        #20;
+   @(posedge clk)     
+        ren = 0;
+        #20; 
+   
+  //read and write 1
+   @(posedge clk)
+        ren = 1;
+        wren=1;
+        wr_data = 8'b11;
+        $display("The value read is %b",rd_data);
+   @(posedge clk) 
+        ren = 0;
+        wren =0;
+        #30;   
+        
+      $finish; 
+end
+
+
+endmodule
